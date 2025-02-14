@@ -30,3 +30,8 @@ jobs:
       run: |
         cd client
         go test -v -cover -covermode=count ./...
+
+    - name: Run go tests for publisher module
+      run: |
+        cd publisher
+        go test -v -cover -covermode=count ./...
