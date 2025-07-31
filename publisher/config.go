@@ -38,7 +38,7 @@ func (dr *DashboardReferences) UnmarshalYAML(value *yaml.Node) error {
 		return nil
 	}
 
-	return fmt.Errorf("dashboard references must be either a single object or a list of objects, got %v", value.Kind)
+	return fmt.Errorf("dashboard references must be either a single object (kind: %v) or a list of objects (kind: %v), but got kind: %v", yaml.MappingNode, yaml.SequenceNode, value.Kind)
 }
 
 // MarshalYAML implements custom marshaling for DashboardReferences
