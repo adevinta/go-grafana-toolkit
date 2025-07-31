@@ -125,21 +125,25 @@ func (p Publisher) Publish(syncAllStacks bool) error {
 		stacksWithCustomDashboards = grafana.Stacks{testStack}
 	}
 
-	localFolder := p.config.CustomDashboard.LocalFolder
-	grafanaFolder := p.config.CustomDashboard.GrafanaFolder
-	if localFolder != "" && grafanaFolder != "" {
-		err = syncDashboards(&stacksWithCustomDashboards, localFolder, grafanaFolder, p.gcc)
-		if err != nil {
-			return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
+	for _, customDashboard := range p.config.CustomDashboards {
+		localFolder := customDashboard.LocalFolder
+		grafanaFolder := customDashboard.GrafanaFolder
+		if localFolder != "" && grafanaFolder != "" {
+			err = syncDashboards(&stacksWithCustomDashboards, localFolder, grafanaFolder, p.gcc)
+			if err != nil {
+				return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
+			}
 		}
 	}
 
-	localFolder = p.config.CommonDashboard.LocalFolder
-	grafanaFolder = p.config.CommonDashboard.GrafanaFolder
-	if localFolder != "" && grafanaFolder != "" {
-		err = syncDashboards(&stacksWithCommonDashboards, localFolder, grafanaFolder, p.gcc)
-		if err != nil {
-			return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
+	for _, commonDashboard := range p.config.CommonDashboards {
+		localFolder := commonDashboard.LocalFolder
+		grafanaFolder := commonDashboard.GrafanaFolder
+		if localFolder != "" && grafanaFolder != "" {
+			err = syncDashboards(&stacksWithCommonDashboards, localFolder, grafanaFolder, p.gcc)
+			if err != nil {
+				return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
+			}
 		}
 	}
 
