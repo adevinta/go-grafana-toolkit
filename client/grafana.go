@@ -37,6 +37,7 @@ type CloudClient struct {
 type GrafanaStackClient interface {
 	DashboardClient
 	Cleanup() error
+	GrafanaStackClient() *client.GrafanaHTTPAPI
 }
 
 // StackClient implements GrafanaStackClient interface and handles
@@ -137,6 +138,10 @@ func (cc *CloudClient) newStackClient(stack *Stack, httpClient *http.Client) (Gr
 		stack:    stack,
 		sa:       cprSA,
 	}, nil
+}
+
+func (c *StackClient) GrafanaStackClient() *client.GrafanaHTTPAPI {
+	return c.httpApi
 }
 
 func (c *StackClient) Cleanup() error {
