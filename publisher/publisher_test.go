@@ -96,10 +96,14 @@ func TestPublish(t *testing.T) {
 
 	stacks := grafana.Stacks{testStack, customStack}
 
-	t.Run("Publish to all stasks", func(t *testing.T) {
+	t.Run("Publish to all stacks", func(t *testing.T) {
 		cloudClient := new(MockCloudClient)
 		testStackClient := new(MockStackClient)
 		customStackClient := new(MockStackClient)
+
+		// Capture uploaded dashboards
+		testStackUploadedDashboards := make(map[string]*grafana.Dashboard)
+		customStackUploadedDashboards := make(map[string]*grafana.Dashboard)
 
 		cloudClient.
 			On("ListStacks").
@@ -120,13 +124,12 @@ func TestPublish(t *testing.T) {
 			Return(commonFolder, nil)
 
 		testStackClient.
-			On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-				dash := d.Dashboard.(map[string]interface{})
-				isCommonDash := d.FolderUID == "common-folder-uid" && dash["uid"] == "common-dash-uid"
-				return isCommonDash
-			})).
-			Return(nil).
-			Once()
+			On("UploadDashboard", mock.AnythingOfType("*client.Dashboard")).
+			Run(func(args mock.Arguments) {
+				dashboard := args.Get(0).(*grafana.Dashboard)
+				testStackUploadedDashboards[dashboard.UID] = dashboard
+			}).
+			Return(nil)
 
 		testStackClient.On("Cleanup").Return(nil)
 
@@ -139,25 +142,17 @@ func TestPublish(t *testing.T) {
 			Return(customFolder, nil)
 
 		customStackClient.
-			On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-				dash := d.Dashboard.(map[string]interface{})
-				isCommonDash := d.FolderUID == "common-folder-uid" && dash["uid"] == "common-dash-uid"
-				return isCommonDash
-			})).
-			Return(nil).Once()
-
-		customStackClient.
-			On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-				dash := d.Dashboard.(map[string]interface{})
-				isCustomDash := d.FolderUID == "custom-folder-uid" && dash["uid"] == "custom-dash-uid"
-				return isCustomDash
-			})).
-			Return(nil).Once()
+			On("UploadDashboard", mock.AnythingOfType("*client.Dashboard")).
+			Run(func(args mock.Arguments) {
+				dashboard := args.Get(0).(*grafana.Dashboard)
+				customStackUploadedDashboards[dashboard.UID] = dashboard
+			}).
+			Return(nil)
 
 		customStackClient.On("Cleanup").Return(nil)
 
 		pub, err := NewPublisherWithCloudClient(cloudClient)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = pub.Publish(true)
 		assert.NoError(t, err)
@@ -165,11 +160,54 @@ func TestPublish(t *testing.T) {
 		cloudClient.AssertExpectations(t)
 		testStackClient.AssertExpectations(t)
 		customStackClient.AssertExpectations(t)
+
+		assert.Equal(
+			t,
+			map[string]*grafana.Dashboard{
+				"common-dash-uid": {
+					FolderUID: "common-folder-uid",
+					UID:       "common-dash-uid",
+					Dashboard: map[string]interface{}{
+						"uid":       "common-dash-uid",
+						"folderUid": "common-folder-uid",
+						"title":     "Common Dashboard",
+					},
+				},
+			},
+			testStackUploadedDashboards,
+		)
+
+		assert.Equal(
+			t,
+			map[string]*grafana.Dashboard{
+				"common-dash-uid": {
+					FolderUID: "common-folder-uid",
+					UID:       "common-dash-uid",
+					Dashboard: map[string]interface{}{
+						"uid":       "common-dash-uid",
+						"folderUid": "common-folder-uid",
+						"title":     "Common Dashboard",
+					},
+				},
+				"custom-dash-uid": {
+					FolderUID: "custom-folder-uid",
+					UID:       "custom-dash-uid",
+					Dashboard: map[string]interface{}{
+						"uid":       "custom-dash-uid",
+						"folderUid": "custom-folder-uid",
+						"title":     "Custom Dashboard",
+					},
+				},
+			},
+			customStackUploadedDashboards,
+		)
 	})
 
 	t.Run("Publish to test stack only", func(t *testing.T) {
 		cloudClient := new(MockCloudClient)
 		testStackClient := new(MockStackClient)
+
+		testStackUploadedDashboards := make(map[string]*grafana.Dashboard)
 
 		cloudClient.
 			On("ListStacks").
@@ -192,33 +230,48 @@ func TestPublish(t *testing.T) {
 			Return(customFolder, nil)
 
 		testStackClient.
-			On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-				dash := d.Dashboard.(map[string]interface{})
-				isCommonDash := d.FolderUID == "common-folder-uid" && dash["uid"] == "common-dash-uid"
-				return isCommonDash
-			})).
-			Return(nil).
-			Once()
-
-		testStackClient.
-			On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-				dash := d.Dashboard.(map[string]interface{})
-				isCustomDash := d.FolderUID == "custom-folder-uid" && dash["uid"] == "custom-dash-uid"
-				return isCustomDash
-			})).
-			Return(nil).
-			Once()
+			On("UploadDashboard", mock.AnythingOfType("*client.Dashboard")).
+			Run(func(args mock.Arguments) {
+				dashboard := args.Get(0).(*grafana.Dashboard)
+				testStackUploadedDashboards[dashboard.UID] = dashboard
+			}).
+			Return(nil)
 
 		testStackClient.On("Cleanup").Return(nil)
 
 		pub, err := NewPublisherWithCloudClient(cloudClient)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		err = pub.Publish(false)
 		assert.NoError(t, err)
 
 		cloudClient.AssertExpectations(t)
 		testStackClient.AssertExpectations(t)
+
+		assert.Equal(
+			t,
+			map[string]*grafana.Dashboard{
+				"common-dash-uid": {
+					FolderUID: "common-folder-uid",
+					UID:       "common-dash-uid",
+					Dashboard: map[string]interface{}{
+						"uid":       "common-dash-uid",
+						"folderUid": "common-folder-uid",
+						"title":     "Common Dashboard",
+					},
+				},
+				"custom-dash-uid": {
+					FolderUID: "custom-folder-uid",
+					UID:       "custom-dash-uid",
+					Dashboard: map[string]interface{}{
+						"uid":       "custom-dash-uid",
+						"folderUid": "custom-folder-uid",
+						"title":     "Custom Dashboard",
+					},
+				},
+			},
+			testStackUploadedDashboards,
+		)
 	})
 }
 
@@ -262,6 +315,8 @@ func TestDashboardsHaveDataSourceNamesAndStackIDsInjected(t *testing.T) {
 	cloudClient := new(MockCloudClient)
 	testStackClient := new(MockStackClient)
 
+	var uploadedDashboard *grafana.Dashboard
+
 	cloudClient.
 		On("ListStacks").
 		Return(grafana.Stacks{testStack}, nil).
@@ -282,19 +337,18 @@ func TestDashboardsHaveDataSourceNamesAndStackIDsInjected(t *testing.T) {
 		}, nil).
 		Once()
 
-	var uploadedDashboard *grafana.Dashboard
 	testStackClient.
-		On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-			uploadedDashboard = d
-			return true
-		})).
+		On("UploadDashboard", mock.AnythingOfType("*client.Dashboard")).
+		Run(func(args mock.Arguments) {
+			uploadedDashboard = args.Get(0).(*grafana.Dashboard)
+		}).
 		Return(nil).
 		Once()
 
 	testStackClient.On("Cleanup").Return(nil)
 
 	pub, err := NewPublisherWithCloudClient(cloudClient)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = pub.Publish(true)
 	assert.NoError(t, err)
@@ -417,7 +471,7 @@ func TestDashboardsAreDeleted(t *testing.T) {
 	testStackClient.On("Cleanup").Return(nil)
 
 	pub, err := NewPublisherWithCloudClient(cloudClient)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = pub.Publish(true)
 	assert.NoError(t, err)
@@ -454,6 +508,8 @@ func TestPublishRetriesOncePerStack(t *testing.T) {
 	cloudClient := new(MockCloudClient)
 	testStackClient := new(MockStackClient)
 
+	var uploadAttempts []*grafana.Dashboard
+
 	cloudClient.
 		On("ListStacks").
 		Return(grafana.Stacks{testStack}, nil).
@@ -467,29 +523,40 @@ func TestPublishRetriesOncePerStack(t *testing.T) {
 		Return(commonFolder, nil)
 
 	testStackClient.
-		On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-			dash := d.Dashboard.(map[string]interface{})
-			return dash["uid"] == "dash-1"
-		})).
+		On("UploadDashboard", mock.AnythingOfType("*client.Dashboard")).
+		Run(func(args mock.Arguments) {
+			dashboard := args.Get(0).(*grafana.Dashboard)
+			uploadAttempts = append(uploadAttempts, dashboard)
+		}).
 		Return(fmt.Errorf("first attempt failed")).
 		Once()
 
 	testStackClient.
-		On("UploadDashboard", mock.MatchedBy(func(d *grafana.Dashboard) bool {
-			dash := d.Dashboard.(map[string]interface{})
-			return dash["uid"] == "dash-1"
-		})).
+		On("UploadDashboard", mock.AnythingOfType("*client.Dashboard")).
+		Run(func(args mock.Arguments) {
+			dashboard := args.Get(0).(*grafana.Dashboard)
+			uploadAttempts = append(uploadAttempts, dashboard)
+		}).
 		Return(nil).
 		Once()
 
 	testStackClient.On("Cleanup").Return(nil)
 
 	pub, err := NewPublisherWithCloudClient(cloudClient)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	err = pub.Publish(true)
 	assert.NoError(t, err)
 
 	cloudClient.AssertExpectations(t)
 	testStackClient.AssertExpectations(t)
+
+	// Verify retry behavior
+	assert.Len(t, uploadAttempts, 2, "should attempt upload twice")
+
+	// Verify both attempts were for the same dashboard
+	for _, attempt := range uploadAttempts {
+		dash := attempt.Dashboard.(map[string]interface{})
+		assert.Equal(t, "dash-1", dash["uid"], "both attempts should be for the same dashboard")
+	}
 }
