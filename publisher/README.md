@@ -27,8 +27,18 @@ customDashboards:
 # Stack slug for custom dashboards
 customStack: "stackname"
 
+# Additional tags added to all dashboards
+tags:
+- automated
+
+# A subfolder where to synchronize the dashboards
+rootFolder: some/base/folder
+
 # Stack slug for testing
 testStack: "teststackname"
+
+# Append a suffix to each dashboard ID to ensure unicity in the stack
+idSuffix: "-pr-1234"
 ```
 
 ## Integration

@@ -5,12 +5,15 @@ import (
 	"net/http"
 
 	grafana "github.com/adevinta/go-grafana-toolkit/client"
+	"github.com/grafana/grafana-openapi-client-go/client"
 	"github.com/stretchr/testify/mock"
 )
 
 type MockStackClient struct {
 	mock.Mock
 }
+
+var _ grafana.GrafanaStackClient = &MockStackClient{}
 
 func (m *MockStackClient) UploadDashboard(dashboard *grafana.Dashboard) error {
 	args := m.Called(dashboard)
@@ -27,8 +30,8 @@ func (m *MockStackClient) DeleteDashboard(uid string) error {
 	return args.Error(0)
 }
 
-func (m *MockStackClient) EnsureFolder(folder string) (*grafana.Folder, error) {
-	args := m.Called(folder)
+func (m *MockStackClient) EnsureFolder(rootFolder *grafana.Folder, folder string) (*grafana.Folder, error) {
+	args := m.Called(rootFolder, folder)
 	return args.Get(0).(*grafana.Folder), args.Error(1)
 }
 
@@ -40,6 +43,16 @@ func (m *MockStackClient) GetDataSource(name string) (*grafana.Datasource, error
 func (m *MockStackClient) Cleanup() error {
 	args := m.Called()
 	return args.Error(0)
+}
+
+func (m *MockStackClient) GrafanaStackClient() *client.GrafanaHTTPAPI {
+	args := m.Called()
+	return args.Get(0).(*client.GrafanaHTTPAPI)
+}
+
+func (m *MockStackClient) ListDashboardIDsInFolder(folderUID string) ([]string, error) {
+	args := m.Called(folderUID)
+	return args.Get(0).([]string), args.Error(1)
 }
 
 type MockCloudClient struct {

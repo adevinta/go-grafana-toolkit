@@ -3,10 +3,11 @@ module github.com/adevinta/go-grafana-toolkit/publisher
 go 1.23.4
 
 require (
-	github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250214095117-8bbb9f847e94
+	github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806121714-1694abd0149f
 	github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19
 	github.com/adevinta/go-system-toolkit v0.0.0-20240912143443-133d8c380cfc
 	github.com/adevinta/go-testutils-toolkit v0.0.0-20240913074508-af35ec32d0a7
+	github.com/grafana/grafana-openapi-client-go v0.0.0-20250108132429-8d7e1f158f65
 	github.com/spf13/afero v1.12.0
 	github.com/stretchr/testify v1.9.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -29,7 +30,6 @@ require (
 	github.com/go-openapi/validate v0.24.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grafana/grafana-com-public-clients/go/gcom v0.0.0-20250127211826-5fe73d084f32 // indirect
-	github.com/grafana/grafana-openapi-client-go v0.0.0-20250108132429-8d7e1f158f65 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect

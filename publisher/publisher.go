@@ -4,11 +4,13 @@
 package publisher
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	grafana "github.com/adevinta/go-grafana-toolkit/client"
 	log "github.com/adevinta/go-log-toolkit"
@@ -17,65 +19,106 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const configFilePath = "publisher-config.yaml"
+// GenerateUniqueID creates a unique ID of maximum 40 characters from a given string.
+// The function is idempotent - the same input string will always produce the same output ID.
+// It uses SHA-256 hashing and truncates to 40 characters to ensure uniqueness.
+func GenerateUniqueID(input string) string {
+	hash := sha256.Sum256([]byte(input))
+	return fmt.Sprintf("%x", hash)[:40]
+}
+
+const defaultConfigFilePath = "publisher-config.yaml"
 
 // Publisher manages the publishing of Grafana dashboards to multiple stacks.
 // It uses a configuration file to determine which dashboards to publish and to which stacks.
 type Publisher struct {
-	config *PublisherConfig
-	gcc    grafana.GrafanaCloudClient
+	configPath string
+	config     *PublisherConfig
+	gcc        grafana.GrafanaCloudClient
+}
+
+func resolveConfigFilePath(path string) string {
+	if path == "" {
+		return defaultConfigFilePath
+	}
+	return path
 }
 
 // IsConfigured checks if the publisher configuration file exists.
-func IsConfigured() bool {
-	_, err := system.DefaultFileSystem.Stat(configFilePath)
+func IsConfigured(path string) bool {
+	_, err := system.DefaultFileSystem.Stat(resolveConfigFilePath(path))
 	return err == nil
 }
 
-// loadPublisherConfig reads and parses the publisher configuration file.
+// LoadPublisherConfig reads and parses the publisher configuration file.
 // Returns an error if the file cannot be read or parsed.
-func loadPublisherConfig() (*PublisherConfig, error) {
-	_, err := system.DefaultFileSystem.Stat(configFilePath)
+func LoadPublisherConfig(path string) (*PublisherConfig, error) {
+	path = resolveConfigFilePath(path)
+	_, err := system.DefaultFileSystem.Stat(path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open config file %s: %w", configFilePath, err)
+		return nil, fmt.Errorf("failed to open config file %s: %w", path, err)
 	}
 
-	data, err := afero.ReadFile(system.DefaultFileSystem, configFilePath)
+	data, err := afero.ReadFile(system.DefaultFileSystem, path)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read config file %s: %w", configFilePath, err)
+		return nil, fmt.Errorf("failed to read config file %s: %w", path, err)
 	}
 
 	var cfg PublisherConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config file %s: %w", configFilePath, err)
+		return nil, fmt.Errorf("failed to parse config file %s: %w", path, err)
 	}
 
-	cfg.initExclusionsMap()
 	return &cfg, nil
+}
+
+func WithCloudClient(gcc grafana.GrafanaCloudClient) PublisherOption {
+	return func(p *Publisher) {
+		p.gcc = gcc
+	}
+}
+
+func WithConfig(cfg *PublisherConfig) PublisherOption {
+	return func(p *Publisher) {
+		p.config = cfg
+	}
+}
+
+func WithConfigPath(path string) PublisherOption {
+	return func(p *Publisher) {
+		p.configPath = path
+	}
 }
 
 // NewPublisher creates a new Publisher instance.
 // It loads the configuration from the publisher-config.yaml file.
 // Returns an error if the configuration file cannot be loaded or parsed.
-func NewPublisher() (*Publisher, error) {
-	return newPublisher(nil)
-}
-
-func NewPublisherWithCloudClient(gcc grafana.GrafanaCloudClient) (*Publisher, error) {
-	return newPublisher(gcc)
-}
-
-func newPublisher(gcc grafana.GrafanaCloudClient) (*Publisher, error) {
-	cfg, err := loadPublisherConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+func NewPublisher(opts ...PublisherOption) (*Publisher, error) {
+	publisher := &Publisher{}
+	for _, opt := range opts {
+		opt(publisher)
 	}
 
-	return &Publisher{
-		config: cfg,
-		gcc:    gcc,
-	}, nil
+	if publisher.config == nil {
+		cfg, err := LoadPublisherConfig(publisher.configPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config: %w", err)
+		}
+		publisher.config = cfg
+	}
+
+	publisher.config.initExclusionsMap()
+
+	return publisher, nil
 }
+
+// NewPublisherWithCloudClient creates a new Publisher instance with a custom Grafana Cloud client.
+// Deprecated: use NewPublisher(WithCloudClient(gcc)) instead
+func NewPublisherWithCloudClient(gcc grafana.GrafanaCloudClient) (*Publisher, error) {
+	return NewPublisher(WithCloudClient(gcc))
+}
+
+type PublisherOption func(*Publisher)
 
 // Publish synchronizes dashboards with Grafana Cloud stacks according to the configuration.
 // If syncAllStacks is true, it publishes to all non-excluded stacks.
@@ -129,7 +172,7 @@ func (p Publisher) Publish(syncAllStacks bool) error {
 		localFolder := customDashboard.LocalFolder
 		grafanaFolder := customDashboard.GrafanaFolder
 		if localFolder != "" && grafanaFolder != "" {
-			err = syncDashboards(&stacksWithCustomDashboards, localFolder, grafanaFolder, p.gcc)
+			err = p.syncDashboards(&stacksWithCustomDashboards, localFolder, grafanaFolder)
 			if err != nil {
 				return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
 			}
@@ -140,7 +183,7 @@ func (p Publisher) Publish(syncAllStacks bool) error {
 		localFolder := commonDashboard.LocalFolder
 		grafanaFolder := commonDashboard.GrafanaFolder
 		if localFolder != "" && grafanaFolder != "" {
-			err = syncDashboards(&stacksWithCommonDashboards, localFolder, grafanaFolder, p.gcc)
+			err = p.syncDashboards(&stacksWithCommonDashboards, localFolder, grafanaFolder)
 			if err != nil {
 				return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
 			}
@@ -158,7 +201,7 @@ type failedStack struct {
 // syncDashboards synchronizes dashboards from a local folder to specified Grafana stacks.
 // It handles both dashboard creation/updates and deletions.
 // Returns an error if the synchronization fails.
-func syncDashboards(grafanaStacks *grafana.Stacks, localFolder, grafanaFolder string, gcc grafana.GrafanaCloudClient) error {
+func (p Publisher) syncDashboards(grafanaStacks *grafana.Stacks, localFolder, grafanaFolder string) error {
 
 	stackSlugs := []string{}
 	for _, stack := range *grafanaStacks {
@@ -179,7 +222,7 @@ func syncDashboards(grafanaStacks *grafana.Stacks, localFolder, grafanaFolder st
 	failedStacks := []failedStack{}
 
 	for _, stack := range *grafanaStacks {
-		err := syncDashboardsForStack(&stack, localFolder, grafanaFolder, gcc)
+		err := p.syncDashboardsForStack(&stack, localFolder, grafanaFolder)
 		if err != nil {
 			failedStacks = append(failedStacks, failedStack{
 				stack: &stack,
@@ -198,7 +241,7 @@ func syncDashboards(grafanaStacks *grafana.Stacks, localFolder, grafanaFolder st
 		log.DefaultLogger.WithField("localFolder", localFolder).WithField("grafanaFolder", grafanaFolder).Println("Retrying...")
 
 		for _, failedStack := range failedStacks {
-			err := syncDashboardsForStack(failedStack.stack, localFolder, grafanaFolder, gcc)
+			err := p.syncDashboardsForStack(failedStack.stack, localFolder, grafanaFolder)
 			if err != nil {
 				return fmt.Errorf("Retry of stack %s failed: %w", failedStack.stack.Slug, err)
 			}
@@ -222,9 +265,9 @@ func stackByName(stacks *grafana.Stacks, name string) grafana.Stack {
 // syncDashboardsForStack synchronizes dashboards for a single Grafana stack.
 // Handles folder creation, dashboard uploads, and dashboard deletions.
 // Returns an error if any operation fails.
-func syncDashboardsForStack(stack *grafana.Stack, localFolder, grafanaFolder string, gcc grafana.GrafanaCloudClient) error {
+func (p Publisher) syncDashboardsForStack(stack *grafana.Stack, localFolder, grafanaFolder string) error {
 
-	sc, err := gcc.NewStackClient(stack)
+	sc, err := p.gcc.NewStackClient(stack)
 
 	if err != nil {
 		return fmt.Errorf("failed to get grafana stack client for stack %v, error: %w", stack.Slug, err)
@@ -232,7 +275,18 @@ func syncDashboardsForStack(stack *grafana.Stack, localFolder, grafanaFolder str
 
 	defer sc.Cleanup()
 
-	folder, err := sc.EnsureFolder(grafanaFolder)
+	var rootFolder *grafana.Folder
+
+	if p.config.RootFolder != "" {
+		for _, folder := range strings.Split(p.config.RootFolder, "/") {
+			rootFolder, err = sc.EnsureFolder(rootFolder, folder)
+			if err != nil {
+				return fmt.Errorf("could not ensure root folder %s: %w", folder, err)
+			}
+		}
+	}
+
+	folder, err := sc.EnsureFolder(rootFolder, grafanaFolder)
 
 	if err != nil {
 		return fmt.Errorf("could not ensure folder %s: %w", grafanaFolder, err)
@@ -344,7 +398,31 @@ func syncDashboardsForStack(stack *grafana.Stack, localFolder, grafanaFolder str
 
 			uid, ok := dash["uid"].(string)
 			if !ok {
-				return fmt.Errorf("dashboard uid %s is not a string in path %s", uid, path)
+				title, ok := dash["title"].(string)
+				if !ok {
+					return fmt.Errorf("unable to find dashboard title in %s", path)
+				}
+				uid = GenerateUniqueID(title)
+			}
+
+			if p.config.RootFolder != "" {
+				uid = uid + p.config.IDSuffix
+			}
+			// Grafana UID is limited to 40 characters. If the ID is too long, generate a new one.
+			if len(uid) > 40 {
+				uid = GenerateUniqueID(uid)
+			}
+			dash["uid"] = uid
+
+			if p.config.Tags != nil {
+				tags, ok := dash["tags"].([]interface{})
+				if !ok {
+					tags = []interface{}{}
+				}
+				for _, tag := range p.config.Tags {
+					tags = append(tags, tag)
+				}
+				dash["tags"] = tags
 			}
 
 			err = sc.UploadDashboard(&grafana.Dashboard{

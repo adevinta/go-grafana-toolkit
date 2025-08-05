@@ -56,8 +56,11 @@ type PublisherConfig struct {
 
 	CustomDashboards DashboardReferences `yaml:"customDashboards"`
 
-	CustomStack string `yaml:"customStack"`
-	TestStack   string `yaml:"testStack"`
+	CustomStack string   `yaml:"customStack"`
+	TestStack   string   `yaml:"testStack"`
+	Tags        []string `yaml:"tags,omitempty"`
+	RootFolder  string   `yaml:"rootFolder,omitempty"`
+	IDSuffix    string   `yaml:"idSuffix,omitempty"`
 }
 
 func (c *PublisherConfig) initExclusionsMap() {
