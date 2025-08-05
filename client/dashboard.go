@@ -4,8 +4,13 @@ import (
 	"fmt"
 
 	"github.com/grafana/grafana-openapi-client-go/client/folders"
+	"github.com/grafana/grafana-openapi-client-go/client/search"
 	"github.com/grafana/grafana-openapi-client-go/models"
 )
+
+func p[T any](v T) *T {
+	return &v
+}
 
 // DashboardClient defines operations for uploading and updating dashboards
 // in a Grafana instance.
@@ -24,6 +29,9 @@ type DashboardClient interface {
 
 	// GetDataSource retrieves a datasource by its name.
 	GetDataSource(name string) (*Datasource, error)
+
+	// ListDashboardIDsInFolder lists all dashboards in a folder.
+	ListDashboardIDsInFolder(folderUID string) ([]string, error)
 }
 
 type JSON interface{}
@@ -106,6 +114,30 @@ func (sc *StackClient) GetDashboard(uid string) (*Dashboard, error) {
 		Dashboard: res.Payload.Dashboard,
 		Meta:      res.Payload.Meta,
 	}, nil
+}
+
+func (sc *StackClient) ListDashboardIDsInFolder(folderUID string) ([]string, error) {
+	params := search.NewSearchParams().
+		WithFolderUIDs([]string{folderUID}).
+		WithType(p("dash-db"))
+
+	// TODO: handle pagination.
+	// Inspecting the Search results there is no easy way to retrieve the
+	// pagination options.
+	// This means it is
+	res, err := sc.httpApi.Search.Search(params)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list dashboards in folder %s: %w", folderUID, err)
+	}
+
+	dashboardUIDs := make([]string, 0, len(res.Payload))
+
+	for _, hit := range res.Payload {
+		dashboardUIDs = append(dashboardUIDs, hit.UID)
+	}
+
+	return dashboardUIDs, nil
 }
 
 func (sc *StackClient) GetFolder(folderName string) (*Folder, error) {
