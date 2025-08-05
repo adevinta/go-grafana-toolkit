@@ -124,7 +124,8 @@ func (sc *StackClient) ListDashboardIDsInFolder(folderUID string) ([]string, err
 	// TODO: handle pagination.
 	// Inspecting the Search results there is no easy way to retrieve the
 	// pagination options.
-	// This means it is
+	// This means it is likely that folder with many dashboards will not be
+	// fully listed.
 	res, err := sc.httpApi.Search.Search(params)
 
 	if err != nil {
