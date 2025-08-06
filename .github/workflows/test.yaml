@@ -27,11 +27,11 @@ jobs:
         go-version: '1.22'
     
     - name: Run go tests for client module
+      working-directory: client
       run: |
-        cd client
         go test -v -cover -covermode=count ./...
 
     - name: Run go tests for publisher module
+      working-directory: publisher
       run: |
-        cd publisher
         go test -v -cover -covermode=count ./...
