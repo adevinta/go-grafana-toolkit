@@ -342,8 +342,14 @@ func syncDashboardsForStack(stack *grafana.Stack, localFolder, grafanaFolder str
 			// Grafana API will return 404 if 'id' is present, use just uid.
 			delete(dash, "id")
 
+			uid, ok := dash["uid"].(string)
+			if !ok {
+				return fmt.Errorf("dashboard uid %s is not a string in path %s", uid, path)
+			}
+
 			err = sc.UploadDashboard(&grafana.Dashboard{
 				FolderUID: folder.UID,
+				UID:       uid,
 				Dashboard: dash,
 			})
 
