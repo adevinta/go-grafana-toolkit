@@ -27,9 +27,12 @@ var (
 		StackURL: "https://custom-stack.grafana.net",
 	}
 
-	commonFolder *grafana.Folder = &grafana.Folder{UID: "common-folder-uid", Title: "Common"}
+	rootFolder    *grafana.Folder = &grafana.Folder{UID: "root-folder-uid", Title: "root"}
+	rootSubfolder *grafana.Folder = &grafana.Folder{UID: "root-folder-uid-2", Title: "folder"}
+	commonFolder  *grafana.Folder = &grafana.Folder{UID: "common-folder-uid", Title: "Common"}
 
 	customFolder *grafana.Folder = &grafana.Folder{UID: "custom-folder-uid", Title: "Custom"}
+	nilFolder    *grafana.Folder = nil
 )
 
 func TestIsConfigured(t *testing.T) {
@@ -37,7 +40,7 @@ func TestIsConfigured(t *testing.T) {
 		system.DefaultFileSystem = afero.NewMemMapFs()
 		defer func() { system.DefaultFileSystem = afero.NewOsFs() }()
 
-		assert.False(t, IsConfigured(), "should return false when config file doesn't exist")
+		assert.False(t, IsConfigured(""), "should return false when config file doesn't exist")
 	})
 
 	t.Run("when config file exists", func(t *testing.T) {
@@ -52,7 +55,7 @@ func TestIsConfigured(t *testing.T) {
 			"testStack": "test-stack",
 		})
 
-		assert.True(t, IsConfigured(), "should return true when config file exists")
+		assert.True(t, IsConfigured(""), "should return true when config file exists")
 	})
 }
 
@@ -74,9 +77,12 @@ func TestPublish(t *testing.T) {
 		},
 		"customStack": "custom-stack",
 		"testStack":   "test-stack",
+		"tags":        []string{"tag1", "tag2"},
+		"rootFolder":  "root/folder",
+		"idSuffix":    "-suffix",
 	})
 
-	require.True(t, IsConfigured())
+	require.True(t, IsConfigured(""))
 	require.NoError(t, system.DefaultFileSystem.MkdirAll("/local_folder_1", 0777))
 	require.NoError(t, system.DefaultFileSystem.MkdirAll("/local_folder_2", 0777))
 
@@ -120,7 +126,14 @@ func TestPublish(t *testing.T) {
 		// - test-stack stores common only dashboards
 		// - custom-stack stores common and custom dashboards
 		testStackClient.
-			On("EnsureFolder", "Common").
+			On("EnsureFolder", nilFolder, "root").
+			Return(rootFolder, nil)
+		testStackClient.
+			On("EnsureFolder", rootFolder, "folder").
+			Return(rootSubfolder, nil)
+
+		testStackClient.
+			On("EnsureFolder", rootSubfolder, "Common").
 			Return(commonFolder, nil)
 
 		testStackClient.
@@ -134,11 +147,17 @@ func TestPublish(t *testing.T) {
 		testStackClient.On("Cleanup").Return(nil)
 
 		customStackClient.
-			On("EnsureFolder", "Common").
+			On("EnsureFolder", nilFolder, "root").
+			Return(rootFolder, nil)
+		customStackClient.
+			On("EnsureFolder", rootFolder, "folder").
+			Return(rootSubfolder, nil)
+		customStackClient.
+			On("EnsureFolder", rootSubfolder, "Common").
 			Return(commonFolder, nil)
 
 		customStackClient.
-			On("EnsureFolder", "Custom").
+			On("EnsureFolder", rootSubfolder, "Custom").
 			Return(customFolder, nil)
 
 		customStackClient.
@@ -164,13 +183,14 @@ func TestPublish(t *testing.T) {
 		assert.Equal(
 			t,
 			map[string]*grafana.Dashboard{
-				"common-dash-uid": {
+				"common-dash-uid-suffix": {
 					FolderUID: "common-folder-uid",
-					UID:       "common-dash-uid",
+					UID:       "common-dash-uid-suffix",
 					Dashboard: map[string]interface{}{
-						"uid":       "common-dash-uid",
+						"uid":       "common-dash-uid-suffix",
 						"folderUid": "common-folder-uid",
 						"title":     "Common Dashboard",
+						"tags":      []any{"tag1", "tag2"},
 					},
 				},
 			},
@@ -180,22 +200,24 @@ func TestPublish(t *testing.T) {
 		assert.Equal(
 			t,
 			map[string]*grafana.Dashboard{
-				"common-dash-uid": {
+				"common-dash-uid-suffix": {
 					FolderUID: "common-folder-uid",
-					UID:       "common-dash-uid",
+					UID:       "common-dash-uid-suffix",
 					Dashboard: map[string]interface{}{
-						"uid":       "common-dash-uid",
+						"uid":       "common-dash-uid-suffix",
 						"folderUid": "common-folder-uid",
 						"title":     "Common Dashboard",
+						"tags":      []any{"tag1", "tag2"},
 					},
 				},
-				"custom-dash-uid": {
+				"custom-dash-uid-suffix": {
 					FolderUID: "custom-folder-uid",
-					UID:       "custom-dash-uid",
+					UID:       "custom-dash-uid-suffix",
 					Dashboard: map[string]interface{}{
-						"uid":       "custom-dash-uid",
+						"uid":       "custom-dash-uid-suffix",
 						"folderUid": "custom-folder-uid",
 						"title":     "Custom Dashboard",
+						"tags":      []any{"tag1", "tag2"},
 					},
 				},
 			},
@@ -222,11 +244,17 @@ func TestPublish(t *testing.T) {
 		// - nothing is stored in custom-stack
 
 		testStackClient.
-			On("EnsureFolder", "Common").
+			On("EnsureFolder", nilFolder, "root").
+			Return(rootFolder, nil)
+		testStackClient.
+			On("EnsureFolder", rootFolder, "folder").
+			Return(rootSubfolder, nil)
+		testStackClient.
+			On("EnsureFolder", rootSubfolder, "Common").
 			Return(commonFolder, nil)
 
 		testStackClient.
-			On("EnsureFolder", "Custom").
+			On("EnsureFolder", rootSubfolder, "Custom").
 			Return(customFolder, nil)
 
 		testStackClient.
@@ -251,22 +279,24 @@ func TestPublish(t *testing.T) {
 		assert.Equal(
 			t,
 			map[string]*grafana.Dashboard{
-				"common-dash-uid": {
+				"common-dash-uid-suffix": {
 					FolderUID: "common-folder-uid",
-					UID:       "common-dash-uid",
+					UID:       "common-dash-uid-suffix",
 					Dashboard: map[string]interface{}{
-						"uid":       "common-dash-uid",
+						"uid":       "common-dash-uid-suffix",
 						"folderUid": "common-folder-uid",
 						"title":     "Common Dashboard",
+						"tags":      []any{"tag1", "tag2"},
 					},
 				},
-				"custom-dash-uid": {
+				"custom-dash-uid-suffix": {
 					FolderUID: "custom-folder-uid",
-					UID:       "custom-dash-uid",
+					UID:       "custom-dash-uid-suffix",
 					Dashboard: map[string]interface{}{
-						"uid":       "custom-dash-uid",
+						"uid":       "custom-dash-uid-suffix",
 						"folderUid": "custom-folder-uid",
 						"title":     "Custom Dashboard",
+						"tags":      []any{"tag1", "tag2"},
 					},
 				},
 			},
@@ -290,7 +320,7 @@ func TestDashboardsHaveDataSourceNamesAndStackIDsInjected(t *testing.T) {
 		"testStack": "test-stack",
 	})
 
-	require.True(t, IsConfigured())
+	require.True(t, IsConfigured(""))
 
 	require.NoError(t, system.DefaultFileSystem.MkdirAll("/local_folder_1", 0777))
 	testutils.EnsureFileContent(t, system.DefaultFileSystem, "/local_folder_1/dashboard1.json", `{
@@ -326,7 +356,7 @@ func TestDashboardsHaveDataSourceNamesAndStackIDsInjected(t *testing.T) {
 		Return(testStackClient, nil)
 
 	testStackClient.
-		On("EnsureFolder", "Common").
+		On("EnsureFolder", nilFolder, "Common").
 		Return(commonFolder, nil)
 
 	testStackClient.
@@ -435,7 +465,7 @@ func TestDashboardsAreDeleted(t *testing.T) {
 		"testStack": "test-stack",
 	})
 
-	require.True(t, IsConfigured())
+	require.True(t, IsConfigured(""))
 
 	require.NoError(t, system.DefaultFileSystem.MkdirAll("/local_folder_1", 0777))
 	testutils.EnsureFileContent(t, system.DefaultFileSystem, "/local_folder_1/dashboard1.json.deleted", `{"dashboard": {"uid": "dash-1"}}`)
@@ -452,7 +482,7 @@ func TestDashboardsAreDeleted(t *testing.T) {
 		Return(testStackClient, nil)
 
 	testStackClient.
-		On("EnsureFolder", "Common").
+		On("EnsureFolder", nilFolder, "Common").
 		Return(commonFolder, nil)
 
 	testStackClient.
@@ -495,7 +525,7 @@ func TestPublishRetriesOncePerStack(t *testing.T) {
 		"testStack": "test-stack",
 	})
 
-	require.True(t, IsConfigured())
+	require.True(t, IsConfigured(""))
 
 	require.NoError(t, system.DefaultFileSystem.MkdirAll("/local_folder_1", 0777))
 	testutils.EnsureFileContent(t, system.DefaultFileSystem, "/local_folder_1/dashboard1.json", `{
@@ -519,7 +549,7 @@ func TestPublishRetriesOncePerStack(t *testing.T) {
 		Return(testStackClient, nil)
 
 	testStackClient.
-		On("EnsureFolder", "Common").
+		On("EnsureFolder", nilFolder, "Common").
 		Return(commonFolder, nil)
 
 	testStackClient.
