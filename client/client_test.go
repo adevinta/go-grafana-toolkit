@@ -232,7 +232,7 @@ func TestEnsureFolder(t *testing.T) {
 
 		assert.NoError(t, err)
 
-		folder, err := stackClient.EnsureFolder("test")
+		folder, err := stackClient.EnsureFolder(nil, "test")
 		assert.NoError(t, err)
 		assert.Equal(t, "test", folder.Title)
 		assert.Equal(t, "test-uid", folder.UID)
@@ -274,7 +274,7 @@ func TestEnsureFolder(t *testing.T) {
 
 		assert.NoError(t, err)
 
-		folder, err := stackClient.EnsureFolder("test")
+		folder, err := stackClient.EnsureFolder(nil, "test")
 		assert.NoError(t, err)
 		assert.Equal(t, "test", folder.Title)
 		assert.Equal(t, "new-folder-uid", folder.UID)
@@ -305,7 +305,7 @@ func TestEnsureFolder(t *testing.T) {
 
 		assert.NoError(t, err)
 
-		folder, err := stackClient.EnsureFolder("test")
+		folder, err := stackClient.EnsureFolder(nil, "test-uid")
 		assert.Error(t, err)
 		assert.Nil(t, folder)
 		assert.Contains(t, err.Error(), "failed to create folder")

@@ -25,7 +25,7 @@ type DashboardClient interface {
 	DeleteDashboard(uid string) error
 
 	// EnsureFolder creates a folder if it doesn't exist or returns existing folder.
-	EnsureFolder(folder string) (*Folder, error)
+	EnsureFolder(rootFolder *Folder, folder string) (*Folder, error)
 
 	// GetDataSource retrieves a datasource by its name.
 	GetDataSource(name string) (*Datasource, error)
@@ -141,8 +141,12 @@ func (sc *StackClient) ListDashboardIDsInFolder(folderUID string) ([]string, err
 	return dashboardUIDs, nil
 }
 
-func (sc *StackClient) GetFolder(folderName string) (*Folder, error) {
-	foldersRes, err := sc.httpApi.Folders.GetFolders(folders.NewGetFoldersParams())
+func (sc *StackClient) GetFolder(rootFolder *Folder, folderName string) (*Folder, error) {
+	params := folders.NewGetFoldersParams()
+	if rootFolder != nil {
+		params.ParentUID = &rootFolder.UID
+	}
+	foldersRes, err := sc.httpApi.Folders.GetFolders(params)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get folders for  %s: %w", folderName, err)
@@ -160,9 +164,9 @@ func (sc *StackClient) GetFolder(folderName string) (*Folder, error) {
 	return nil, nil
 }
 
-func (sc *StackClient) EnsureFolder(folderName string) (*Folder, error) {
+func (sc *StackClient) EnsureFolder(rootFolder *Folder, folderName string) (*Folder, error) {
 
-	folder, err := sc.GetFolder(folderName)
+	folder, err := sc.GetFolder(rootFolder, folderName)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to get folders for %s: %w", folderName, err)
@@ -173,6 +177,9 @@ func (sc *StackClient) EnsureFolder(folderName string) (*Folder, error) {
 	}
 
 	createFolderCmd := &models.CreateFolderCommand{Title: folderName}
+	if rootFolder != nil {
+		createFolderCmd.ParentUID = rootFolder.UID
+	}
 	createRes, err := sc.httpApi.Folders.CreateFolder(createFolderCmd)
 
 	if err != nil {
