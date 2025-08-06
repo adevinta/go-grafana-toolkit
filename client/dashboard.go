@@ -149,17 +149,23 @@ func (sc *StackClient) GetFolder(rootFolder *Folder, folderName string) (*Folder
 	foldersRes, err := sc.httpApi.Folders.GetFolders(params)
 
 	if err != nil {
+		fmt.Println("failed to get folders for %s: %w", folderName, err)
 		return nil, fmt.Errorf("failed to get folders for  %s: %w", folderName, err)
 	}
 
+	fmt.Println("found", len(foldersRes.Payload), "folders")
+
 	for _, f := range foldersRes.Payload {
 		if f.Title == folderName {
+			fmt.Println("found", f.Title)
 			return &Folder{
 				UID:   f.UID,
 				Title: f.Title,
 			}, nil
 		}
 	}
+
+	fmt.Println("not found", folderName)
 
 	return nil, nil
 }
@@ -169,12 +175,17 @@ func (sc *StackClient) EnsureFolder(rootFolder *Folder, folderName string) (*Fol
 	folder, err := sc.GetFolder(rootFolder, folderName)
 
 	if err != nil {
+		fmt.Println("failed to get folders for %s: %w", folderName, err)
 		return nil, fmt.Errorf("failed to get folders for %s: %w", folderName, err)
 	}
+
+	fmt.Println("folder", folder)
 
 	if folder != nil {
 		return folder, nil
 	}
+
+	fmt.Println("creating new folder", folderName)
 
 	createFolderCmd := &models.CreateFolderCommand{Title: folderName}
 	if rootFolder != nil {
