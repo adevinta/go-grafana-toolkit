@@ -1,5 +1,7 @@
 github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806121714-1694abd0149f h1:Q+4xJpi7aaqun60Y2Aio1bZboipt4Ny2EkB75spQLkA=
 github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806121714-1694abd0149f/go.mod h1:1vDDJ28WqUEqtlJxx/4QOtDvuW7z3N6SskHrY0+I2h0=
+github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806153515-1246658ff546 h1:bcqweSeAL1SMBqt+Tlhcx1a1RFkYLyb+KChLTz0zdBo=
+github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806153515-1246658ff546/go.mod h1:1vDDJ28WqUEqtlJxx/4QOtDvuW7z3N6SskHrY0+I2h0=
 github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19 h1:oLWqBNiMCds/hsWjHGYgceUzYfJquhQoHEmSEdq0gKM=
 github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19/go.mod h1:oKcFLGHSHtWJRos+gkZ/tji5U4v6f+f8DMRP+91G+Yg=
 github.com/adevinta/go-system-toolkit v0.0.0-20240912143443-133d8c380cfc h1:AjWBRPpsZRIubsXViIgTPdGRF1qPTGMg5/zKzfu7xgQ=
