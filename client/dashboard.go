@@ -3,6 +3,7 @@ package client
 import (
 	"fmt"
 
+	"github.com/adevinta/go-log-toolkit"
 	"github.com/grafana/grafana-openapi-client-go/client/folders"
 	"github.com/grafana/grafana-openapi-client-go/client/search"
 	"github.com/grafana/grafana-openapi-client-go/models"
@@ -142,6 +143,7 @@ func (sc *StackClient) ListDashboardIDsInFolder(folderUID string) ([]string, err
 }
 
 func (sc *StackClient) GetFolder(rootFolder *Folder, folderName string) (*Folder, error) {
+
 	params := folders.NewGetFoldersParams()
 	if rootFolder != nil {
 		params.ParentUID = &rootFolder.UID
@@ -152,14 +154,20 @@ func (sc *StackClient) GetFolder(rootFolder *Folder, folderName string) (*Folder
 		return nil, fmt.Errorf("failed to get folders for  %s: %w", folderName, err)
 	}
 
+	log.DefaultLogger.WithField("folders", len(foldersRes.Payload)).Debugf("done listing folders")
+
 	for _, f := range foldersRes.Payload {
+		log.DefaultLogger.WithField("folder", f.Title).WithField("searched", folderName).Tracef("matching folder")
 		if f.Title == folderName {
+			log.DefaultLogger.WithField("folder", f.Title).WithField("searched", folderName).Tracef("found folder")
 			return &Folder{
 				UID:   f.UID,
 				Title: f.Title,
 			}, nil
 		}
 	}
+
+	log.DefaultLogger.WithField("searched", folderName).Debugf("not found")
 
 	return nil, nil
 }
@@ -172,9 +180,13 @@ func (sc *StackClient) EnsureFolder(rootFolder *Folder, folderName string) (*Fol
 		return nil, fmt.Errorf("failed to get folders for %s: %w", folderName, err)
 	}
 
+	log.DefaultLogger.WithField("folder", folder).Tracef("found folder")
+
 	if folder != nil {
 		return folder, nil
 	}
+
+	log.DefaultLogger.WithField("folder", folderName).Debugf("creating new folder")
 
 	createFolderCmd := &models.CreateFolderCommand{Title: folderName}
 	if rootFolder != nil {
