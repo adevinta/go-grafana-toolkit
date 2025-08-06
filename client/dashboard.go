@@ -159,6 +159,7 @@ func (sc *StackClient) GetFolder(rootFolder *Folder, folderName string) (*Folder
 	for _, f := range foldersRes.Payload {
 		log.DefaultLogger.WithField("folder", f.Title).WithField("searched", folderName).Tracef("matching folder")
 		if f.Title == folderName {
+			log.DefaultLogger.WithField("folder", f.Title).WithField("searched", folderName).Tracef("found folder")
 			return &Folder{
 				UID:   f.UID,
 				Title: f.Title,
@@ -179,7 +180,7 @@ func (sc *StackClient) EnsureFolder(rootFolder *Folder, folderName string) (*Fol
 		return nil, fmt.Errorf("failed to get folders for %s: %w", folderName, err)
 	}
 
-	log.DefaultLogger.WithField("folder", folder). WithField("searched", folderName). Tracef("found folder")
+	log.DefaultLogger.WithField("folder", folder).WithField("searched", folderName).Tracef("found folder")
 
 	if folder != nil {
 		return folder, nil
