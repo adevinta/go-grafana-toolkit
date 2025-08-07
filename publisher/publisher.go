@@ -11,10 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	grafana "github.com/adevinta/go-grafana-toolkit/client"
 	log "github.com/adevinta/go-log-toolkit"
 	system "github.com/adevinta/go-system-toolkit"
+	"github.com/cenk/backoff"
 	"github.com/spf13/afero"
 	"gopkg.in/yaml.v3"
 )
@@ -168,11 +170,25 @@ func (p Publisher) Publish(syncAllStacks bool) error {
 		stacksWithCustomDashboards = grafana.Stacks{testStack}
 	}
 
+	parentFolders := map[string]*grafana.Folder{}
+	if p.config.RootFolder != "" {
+		for _, stack := range append(stacksWithCommonDashboards, stacksWithCustomDashboards...) {
+			if _, ok := parentFolders[stack.Slug]; ok {
+				continue
+			}
+			parentFolder, err := p.ensureParentFolder(&stack)
+			if err != nil {
+				return fmt.Errorf("failed to create parent folder for stack %s: %w", stack.Slug, err)
+			}
+			parentFolders[stack.Slug] = parentFolder
+		}
+	}
+
 	for _, customDashboard := range p.config.CustomDashboards {
 		localFolder := customDashboard.LocalFolder
 		grafanaFolder := customDashboard.GrafanaFolder
 		if localFolder != "" && grafanaFolder != "" {
-			err = p.syncDashboards(&stacksWithCustomDashboards, localFolder, grafanaFolder)
+			err = p.syncDashboards(&stacksWithCustomDashboards, parentFolders, localFolder, grafanaFolder)
 			if err != nil {
 				return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
 			}
@@ -183,7 +199,7 @@ func (p Publisher) Publish(syncAllStacks bool) error {
 		localFolder := commonDashboard.LocalFolder
 		grafanaFolder := commonDashboard.GrafanaFolder
 		if localFolder != "" && grafanaFolder != "" {
-			err = p.syncDashboards(&stacksWithCommonDashboards, localFolder, grafanaFolder)
+			err = p.syncDashboards(&stacksWithCommonDashboards, parentFolders, localFolder, grafanaFolder)
 			if err != nil {
 				return fmt.Errorf("sync failed (%s -> %s): %w", localFolder, grafanaFolder, err)
 			}
@@ -191,6 +207,28 @@ func (p Publisher) Publish(syncAllStacks bool) error {
 	}
 
 	return nil
+}
+
+func (p Publisher) ensureParentFolder(stack *grafana.Stack) (*grafana.Folder, error) {
+	sc, err := p.gcc.NewStackClient(stack)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get grafana stack client for stack %v, error: %w", stack.Slug, err)
+	}
+
+	defer sc.Cleanup()
+
+	var parentFolder *grafana.Folder
+
+	if p.config.RootFolder != "" {
+		for _, folder := range strings.Split(p.config.RootFolder, "/") {
+			parentFolder, err = sc.EnsureFolder(parentFolder, folder)
+			if err != nil {
+				return nil, fmt.Errorf("could not ensure root folder %s: %w", folder, err)
+			}
+		}
+	}
+	return parentFolder, nil
 }
 
 type failedStack struct {
@@ -201,7 +239,7 @@ type failedStack struct {
 // syncDashboards synchronizes dashboards from a local folder to specified Grafana stacks.
 // It handles both dashboard creation/updates and deletions.
 // Returns an error if the synchronization fails.
-func (p Publisher) syncDashboards(grafanaStacks *grafana.Stacks, localFolder, grafanaFolder string) error {
+func (p Publisher) syncDashboards(grafanaStacks *grafana.Stacks, parentFolders map[string]*grafana.Folder, localFolder, grafanaFolder string) error {
 
 	stackSlugs := []string{}
 	for _, stack := range *grafanaStacks {
@@ -219,33 +257,31 @@ func (p Publisher) syncDashboards(grafanaStacks *grafana.Stacks, localFolder, gr
 		return nil
 	}
 
-	failedStacks := []failedStack{}
+	stacksToSync := *grafanaStacks
 
-	for _, stack := range *grafanaStacks {
-		err := p.syncDashboardsForStack(&stack, localFolder, grafanaFolder)
-		if err != nil {
-			failedStacks = append(failedStacks, failedStack{
-				stack: &stack,
-				err:   err,
-			})
-		}
-	}
+	retry := backoff.NewExponentialBackOff()
+	retry.MaxInterval = 10 * time.Second
 
-	if len(failedStacks) > 0 {
-		log.DefaultLogger.Errorf("Number of failed stacks: %d.", len(failedStacks))
-
-		for _, failedStack := range failedStacks {
-			log.DefaultLogger.WithField("failedStack", failedStack.stack.Slug).Errorf("Failed to sync dashboards: %v", failedStack.err)
-		}
-
-		log.DefaultLogger.WithField("localFolder", localFolder).WithField("grafanaFolder", grafanaFolder).Println("Retrying...")
-
-		for _, failedStack := range failedStacks {
-			err := p.syncDashboardsForStack(failedStack.stack, localFolder, grafanaFolder)
+	err = backoff.Retry(func() error {
+		failedStacks := grafana.Stacks{}
+		errs := []error{}
+		for _, stack := range stacksToSync {
+			err := p.syncDashboardsForStack(&stack, parentFolders[stack.Slug], localFolder, grafanaFolder)
 			if err != nil {
-				return fmt.Errorf("Retry of stack %s failed: %w", failedStack.stack.Slug, err)
+				errs = append(errs, err)
+				failedStacks = append(failedStacks, stack)
 			}
 		}
+		if len(errs) > 0 {
+			stacksToSync = failedStacks
+			return errors.Join(errs...)
+		}
+		stacksToSync = grafana.Stacks{}
+		return nil
+	}, retry)
+
+	if err != nil {
+		return fmt.Errorf("failed to sync dashboards: %w", err)
 	}
 
 	return nil
@@ -265,7 +301,7 @@ func stackByName(stacks *grafana.Stacks, name string) grafana.Stack {
 // syncDashboardsForStack synchronizes dashboards for a single Grafana stack.
 // Handles folder creation, dashboard uploads, and dashboard deletions.
 // Returns an error if any operation fails.
-func (p Publisher) syncDashboardsForStack(stack *grafana.Stack, localFolder, grafanaFolder string) error {
+func (p Publisher) syncDashboardsForStack(stack *grafana.Stack, parentFolder *grafana.Folder, localFolder, grafanaFolder string) error {
 
 	sc, err := p.gcc.NewStackClient(stack)
 
@@ -275,18 +311,7 @@ func (p Publisher) syncDashboardsForStack(stack *grafana.Stack, localFolder, gra
 
 	defer sc.Cleanup()
 
-	var rootFolder *grafana.Folder
-
-	if p.config.RootFolder != "" {
-		for _, folder := range strings.Split(p.config.RootFolder, "/") {
-			rootFolder, err = sc.EnsureFolder(rootFolder, folder)
-			if err != nil {
-				return fmt.Errorf("could not ensure root folder %s: %w", folder, err)
-			}
-		}
-	}
-
-	folder, err := sc.EnsureFolder(rootFolder, grafanaFolder)
+	folder, err := sc.EnsureFolder(parentFolder, grafanaFolder)
 
 	if err != nil {
 		return fmt.Errorf("could not ensure folder %s: %w", grafanaFolder, err)

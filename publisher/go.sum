@@ -2,6 +2,10 @@ github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806121714-1694abd0149f
 github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806121714-1694abd0149f/go.mod h1:1vDDJ28WqUEqtlJxx/4QOtDvuW7z3N6SskHrY0+I2h0=
 github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806153515-1246658ff546 h1:bcqweSeAL1SMBqt+Tlhcx1a1RFkYLyb+KChLTz0zdBo=
 github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806153515-1246658ff546/go.mod h1:1vDDJ28WqUEqtlJxx/4QOtDvuW7z3N6SskHrY0+I2h0=
+github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250807081759-c89454d8eb31 h1:PFBMUppywF4feSQslVDDa+Cx1s1gArz9QQr4ZaHynSY=
+github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250807081759-c89454d8eb31/go.mod h1:GZSucqmr3K+dohjsVFVJ3LDy4PNwsJx+c0qqMZPpZUs=
+github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250807090056-ecd000f9a63e h1:4j8fWuVbm2Uu8Gfg0hjamu5D/6OznWay1zzyujWAscA=
+github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250807090056-ecd000f9a63e/go.mod h1:GZSucqmr3K+dohjsVFVJ3LDy4PNwsJx+c0qqMZPpZUs=
 github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19 h1:oLWqBNiMCds/hsWjHGYgceUzYfJquhQoHEmSEdq0gKM=
 github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19/go.mod h1:oKcFLGHSHtWJRos+gkZ/tji5U4v6f+f8DMRP+91G+Yg=
 github.com/adevinta/go-system-toolkit v0.0.0-20240912143443-133d8c380cfc h1:AjWBRPpsZRIubsXViIgTPdGRF1qPTGMg5/zKzfu7xgQ=
@@ -10,6 +14,8 @@ github.com/adevinta/go-testutils-toolkit v0.0.0-20240913074508-af35ec32d0a7 h1:x
 github.com/adevinta/go-testutils-toolkit v0.0.0-20240913074508-af35ec32d0a7/go.mod h1:ylsX6yclqK6PscEATGV8jzAzanx2CxeX7ycjEhk/KRE=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=
 github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2/go.mod h1:WaHUgvxTVq04UNunO+XhnAqY/wQc+bxr74GqbsZ/Jqw=
+github.com/cenk/backoff v2.2.1+incompatible h1:djdFT7f4gF2ttuzRKPbMOWgZajgesItGLwG5FTQKmmE=
+github.com/cenk/backoff v2.2.1+incompatible/go.mod h1:7FtoeaSnHoZnmZzz47cM35Y9nSW7tNyaidugnHTaFDE=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
