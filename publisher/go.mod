@@ -3,7 +3,7 @@ module github.com/adevinta/go-grafana-toolkit/publisher
 go 1.23.4
 
 require (
-	github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806121714-1694abd0149f
+	github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806153515-1246658ff546
 	github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19
 	github.com/adevinta/go-system-toolkit v0.0.0-20240912143443-133d8c380cfc
 	github.com/adevinta/go-testutils-toolkit v0.0.0-20240913074508-af35ec32d0a7
