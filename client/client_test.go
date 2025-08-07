@@ -242,11 +242,20 @@ func TestEnsureFolder(t *testing.T) {
 		cloudClient, err := buildCloudClient(t)
 		assert.NoError(t, err)
 
+		created := false
 		stackClient, err := cloudClient.NewStackClientWithHttpClient(testStack, &http.Client{
 			Transport: testutils.RoundTripperFunc(func(req *http.Request) (*http.Response, error) {
 				assert.Equal(t, "https://test-stack.grafana.net/api/folders", req.URL.String())
 				switch req.Method {
 				case "GET":
+					if created {
+						return testutils.NewHTTPResponseBuilder().
+							WithJsonBody([]map[string]interface{}{{
+								"uid":   "new-folder-uid",
+								"title": "test",
+							}}).
+							WithStatusCode(http.StatusOK).Build(), nil
+					}
 					return testutils.NewHTTPResponseBuilder().
 						WithJsonBody([]map[string]interface{}{}).
 						WithStatusCode(http.StatusOK).Build(), nil
@@ -259,6 +268,7 @@ func TestEnsureFolder(t *testing.T) {
 					}
 					assert.Contains(t, payload, "title")
 					assert.Equal(t, "test", payload["title"])
+					created = true
 					return testutils.NewHTTPResponseBuilder().
 						WithJsonBody(map[string]interface{}{
 							"uid":   "new-folder-uid",
