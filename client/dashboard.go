@@ -2,8 +2,10 @@ package client
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/adevinta/go-log-toolkit"
+	"github.com/cenk/backoff"
 	"github.com/grafana/grafana-openapi-client-go/client/folders"
 	"github.com/grafana/grafana-openapi-client-go/client/search"
 	"github.com/grafana/grafana-openapi-client-go/models"
@@ -192,6 +194,27 @@ func (sc *StackClient) EnsureFolder(rootFolder *Folder, folderName string) (*Fol
 		createFolderCmd.ParentUID = rootFolder.UID
 	}
 	createRes, err := sc.httpApi.Folders.CreateFolder(createFolderCmd)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create folder %s: %w", folderName, err)
+	}
+
+	retry := backoff.NewExponentialBackOff()
+	retry.MaxElapsedTime = time.Minute
+	retry.MaxInterval = 10 * time.Second
+
+	err = backoff.Retry(func() error {
+		folder, err := sc.GetFolder(rootFolder, folderName)
+		if err != nil {
+			log.DefaultLogger.WithError(err).WithField("folder", folderName).Debugf("failed to get folder")
+			return err
+		}
+		if folder != nil {
+			return nil
+		}
+
+		return fmt.Errorf("folder not found")
+	}, retry)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create folder %s: %w", folderName, err)

@@ -5,6 +5,7 @@ go 1.22
 require (
 	github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19
 	github.com/adevinta/go-testutils-toolkit v0.0.0-20240913074508-af35ec32d0a7
+	github.com/cenk/backoff v2.2.1+incompatible
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/grafana/grafana-com-public-clients/go/gcom v0.0.0-20250127211826-5fe73d084f32
 	github.com/grafana/grafana-openapi-client-go v0.0.0-20250108132429-8d7e1f158f65
