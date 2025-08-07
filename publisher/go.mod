@@ -3,7 +3,7 @@ module github.com/adevinta/go-grafana-toolkit/publisher
 go 1.23.4
 
 require (
-	github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250806153515-1246658ff546
+	github.com/adevinta/go-grafana-toolkit/client v0.0.0-20250807090056-ecd000f9a63e
 	github.com/adevinta/go-log-toolkit v0.0.0-20241010122356-50ef5e036d19
 	github.com/adevinta/go-system-toolkit v0.0.0-20240912143443-133d8c380cfc
 	github.com/adevinta/go-testutils-toolkit v0.0.0-20240913074508-af35ec32d0a7
@@ -15,6 +15,7 @@ require (
 
 require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
+	github.com/cenk/backoff v2.2.1+incompatible // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
